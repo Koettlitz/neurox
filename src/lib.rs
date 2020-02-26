@@ -1,5 +1,4 @@
-mod neurons;
-mod neural_network;
+pub mod neural_network;
 
 fn sigmoid(x: f64) -> f64 { 1.0 / (1.0 + (-x).exp()) }
 
@@ -9,7 +8,7 @@ fn sigmoid_prime(x: f64) -> f64 {
 }
 
 #[cfg(test)]
-mod tests {
+mod test {
     use super::{sigmoid, sigmoid_prime};
 
     pub const FLOATING_PRECISION: u8 = 4;
