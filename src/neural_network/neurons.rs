@@ -190,3 +190,66 @@ fn panic_on_derivative_call_without_previous_neurons(respect: &str, layer: usize
            connection to previous layer {}, but there are no previous hidden neurons to this one.",
            respect, layer)
 }
+
+#[cfg(test)]
+mod test {
+    use crate::test::*;
+    use super::*;
+    use std::rc::Rc;
+    use std::cell::RefCell;
+
+    const TINY_DELTA: f64 = 0.0001;
+    const INPUT: [f64; 8] = [13.1, -17000.0, 0.5, 64.0, -3.0, -512.0, 8000.0, 1.0];
+    const TARGET_VALUE: f64 = 0.5;
+
+    fn setup() -> Neuron {
+        let hidden_layer = (0..8).map(|i| {
+            Rc::new(RefCell::new(Neuron::new_first_hidden(i, false, INPUT.len())))
+        }).collect();
+
+        Neuron::new(2, 0, true, hidden_layer)
+    }
+
+    #[test]
+    fn test_cost_derivative_bias() {
+        let neuron = setup();
+
+        let previous = neuron.previous.as_ref().expect("Wrong test setup: Output neuron had no predecessors.");
+        for (i, n) in previous.iter().enumerate() {
+            let expected = expected_cost_derivative(n, &neuron);
+            let actual = neuron.cost_derivative_bias(&INPUT.to_vec(), TARGET_VALUE, 1, i);
+            println!("Expected: `{}` - Actual: `{}`", expected, actual);
+            assert_approx_eq(expected, actual, "Cost derivative unequal");
+        }
+    }
+
+    fn cost_fn(neuron: &Neuron) -> f64 {
+        let output = sigmoid(neuron.output_for(&INPUT.to_vec()));
+        (TARGET_VALUE - output).powi(2)
+    }
+
+    fn expected_cost_derivative(target_neuron: &Rc<RefCell<Neuron>>, output_neuron: &Neuron) -> f64 {
+        target_neuron.borrow_mut().core.bias -= TINY_DELTA;
+        let before = cost_fn(output_neuron);
+        reset_recursively(output_neuron);
+
+        target_neuron.borrow_mut().core.bias += 2.0 * TINY_DELTA;
+        let after = cost_fn(output_neuron);
+
+        reset_recursively(output_neuron);
+        target_neuron.borrow_mut().core.bias -= TINY_DELTA;
+
+        println!("after: {} - before: {}", after, before);
+        (after - before) / (2.0 * TINY_DELTA)
+    }
+
+    fn reset_recursively(neuron: &Neuron) {
+        neuron.reset();
+        if let Some(prev) = &neuron.previous {
+            for (i, n) in prev.iter().enumerate() {
+                if i == prev.len() - 1 { reset_recursively(&n.borrow()); }
+                else { n.borrow().reset(); }
+            }
+        }
+    }
+}
