@@ -79,19 +79,26 @@ impl Neuron {
 
     fn calc_output_for(&self, input: &Vec<f64>) -> f64 {
         let core = &self.core;
-        let result = if let Some(prev) = &self.previous {
-            prev.iter()
+        if let Some(prev) = &self.previous {
+            let sum = prev.iter()
                 .map(|n| {
-                    core.process(sigmoid(n.borrow().output_for(input)), n.borrow().index)
+                    let debug_input = n.borrow().output_for(input);
+                    // println!("input from prev: {} - sigmoided: {}", debug_input, sigmoid(debug_input));
+                    core.process(sigmoid(debug_input), n.borrow().index)
                 })
-                .sum()
+                .sum();
+            // println!("Summed hidden: {}", sum);
+            sum
         } else {
-            input.iter().enumerate()
-                        .map(|(i, value)| core.process(sigmoid(*value), i))
-                        .sum()
-        };
-
-        result
+            let sum = input.iter().enumerate()
+                        .map(|(i, value)| {
+                            // println!("input: {} - sigmoided: {}", *value, sigmoid(*value));
+                            core.process(sigmoid(*value), i)
+                        })
+                        .sum();
+            // println!("Summed input: {}", sum);
+            sum
+        }
     }
 
     fn part_derivative(&self, input: &Vec<f64>, expected: f64) -> f64 {
@@ -198,16 +205,28 @@ mod test {
     use std::rc::Rc;
     use std::cell::RefCell;
 
-    const TINY_DELTA: f64 = 0.0001;
     const INPUT: [f64; 8] = [13.1, -17000.0, 0.5, 64.0, -3.0, -512.0, 8000.0, 1.0];
+    const HIDDEN_LAYER_SIZE: usize = 8;
+    const TINY_DELTA: f64 = 0.0001;
     const TARGET_VALUE: f64 = 0.5;
 
     fn setup() -> Neuron {
-        let hidden_layer = (0..8).map(|i| {
+        let hidden_layer = (0..HIDDEN_LAYER_SIZE).map(|i| {
             Rc::new(RefCell::new(Neuron::new_first_hidden(i, false, INPUT.len())))
         }).collect();
 
         Neuron::new(2, 0, true, hidden_layer)
+    }
+
+    fn expected_output() -> f64 {
+        let sigmoided_input = INPUT.iter().map(|i| sigmoid(*i)).sum();
+        sigmoid(sigmoided_input) * HIDDEN_LAYER_SIZE as f64
+    }
+
+    #[test]
+    fn output_is_correct() {
+        let neuron = setup();
+        assert_eq!(expected_output(), neuron.output_for(&INPUT.to_vec()));
     }
 
     #[test]
@@ -225,6 +244,7 @@ mod test {
 
     fn cost_fn(neuron: &Neuron) -> f64 {
         let output = sigmoid(neuron.output_for(&INPUT.to_vec()));
+        println!("output: {}", output);
         (TARGET_VALUE - output).powi(2)
     }
 

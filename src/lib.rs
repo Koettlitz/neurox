@@ -68,7 +68,7 @@ mod test {
 
     pub fn approx_eq(a: f64, b: f64, precision: u8) -> bool {
         let max_diff = 10.0_f64.powi(-(precision as i32));
-        a - b < max_diff
+        (a - b).abs() < max_diff
     }
 
     pub fn assert_approx_eq(a: f64, b: f64, msg: &str) {
